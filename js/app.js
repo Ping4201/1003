@@ -138,6 +138,61 @@ function editPalace(b) {
   dlgPalace.showModal();
 }
 
+/* ---------- 比對文墨天機盤 ---------- */
+let cmp = null; // { parsed, result }
+const starsHtml = (arr) => (arr.length ? arr.map((s) => `<span class="cs">${esc(s)}</span>`).join('') : '<span class="muted">（無）</span>');
+function renderCompare() {
+  const box = $('#cmp-result');
+  const { result } = cmp;
+  const diffs = result.rows.filter((r) => r.differs);
+  let html = '';
+  if (!result.rows.length) {
+    html = '<p class="err">看不到任何宮位。請每行以地支（子丑寅…）或宮名（命宮、兄弟…）開頭。</p>';
+  } else {
+    html += `<p class="cmp-sum ${diffs.length || result.juDiff ? 'bad' : 'good'}">比對了 ${result.rows.length} 個宮位：` +
+      (diffs.length || result.juDiff ? `<b>${diffs.length} 個宮位不同</b>` : '<b>全部吻合 ✓</b>') + '</p>';
+    if (result.juDiff) {
+      html += `<p class="err">五行局不同：系統 ${esc(result.juDiff.system)}／文墨 ${esc(result.juDiff.wenmo)}。這代表命宮、生日或時辰的判定不同，請先確認出生時間、晚子時、閏月設定，再比對星曜。</p>`;
+    }
+    html += diffs.map((r) => `
+      <label class="cmp-row"><input type="checkbox" data-idx="${r.idx}" checked>
+        <div><div class="cmp-h">${esc(r.branch)}宮（${esc(r.palace)}）</div>
+          <div class="cmp-line"><b>系統</b>${starsHtml(r.system)}</div>
+          <div class="cmp-line"><b>文墨</b>${starsHtml(r.wenmo)}</div>
+          <div class="cmp-note">${[r.onlyWm.length ? '文墨多：' + r.onlyWm.join('、') : '', r.onlySys.length ? '系統多：' + r.onlySys.join('、') : '', ...r.huaDiff].filter(Boolean).map(esc).join('｜')}</div>
+        </div></label>`).join('');
+    html += '<div class="actions mt">' +
+      (diffs.length ? '<button type="button" id="btn-cmp-apply" class="primary">套用勾選的宮位</button>' : '') +
+      '<button type="button" id="btn-cmp-copy" class="ghost">複製差異報告</button></div>';
+  }
+  box.innerHTML = html;
+}
+$('#btn-cmp').addEventListener('click', () => {
+  if (!cur.chart) return toast('請先排盤');
+  const parsed = Compare.parse($('#cmp-text').value);
+  cmp = { parsed, result: Compare.diff(cur.chart, parsed) };
+  renderCompare();
+});
+$('#btn-cmp-clear').addEventListener('click', () => { $('#cmp-text').value = ''; $('#cmp-result').innerHTML = ''; cmp = null; });
+$('#cmp-result').addEventListener('click', async (e) => {
+  if (!cmp) return;
+  if (e.target.id === 'btn-cmp-apply') {
+    const picked = new Set($$('#cmp-result input[type=checkbox]:checked').map((c) => Number(c.dataset.idx)));
+    let n = 0;
+    cmp.result.rows.filter((r) => picked.has(r.idx)).forEach((r) => { Compare.apply(cur.chart, r, cmp.parsed); n++; });
+    if (!n) return toast('沒有勾選任何宮位');
+    renderChart();
+    cmp.result = Compare.diff(cur.chart, cmp.parsed);
+    renderCompare();
+    toast(`已套用 ${n} 個宮位，記得按「儲存為案例」`);
+  }
+  if (e.target.id === 'btn-cmp-copy') {
+    const text = Compare.report(cur.chart, cmp.result);
+    try { await navigator.clipboard.writeText(text); toast('已複製，可貼給 Claude'); }
+    catch { prompt('請複製這段文字：', text); }
+  }
+});
+
 $('#btn-save-case').addEventListener('click', async () => {
   if (!cur.chart) return;
   const item = {

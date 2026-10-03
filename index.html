@@ -75,6 +75,13 @@
       <div class="chart-grid" id="chart-grid"></div>
       <p class="hint">點宮位可修改星曜與備註；點星名可看速查說明。</p>
       <div class="card" id="star-info" hidden></div>
+      <details class="card" id="cmp-box">
+        <summary><b>比對文墨天機盤</b>（貼上星曜，找出排錯的地方）</summary>
+        <p class="hint">在文墨天機看盤，照著每個宮位把星曜打（或複製）進來，一宮一行，開頭寫地支或宮名都可以。四化寫「太陽化忌」或「太陽忌」。沒有的星（如天空、截空）會自動略過。</p>
+        <textarea id="cmp-text" rows="9" placeholder="金四局&#10;子 巨門 左輔&#10;丑 天相 文昌 文曲 天魁&#10;寅 天同 天梁 右弼化科 地空 天馬&#10;卯 武曲 七殺&#10;…（可只貼部分宮位）"></textarea>
+        <div class="actions mt"><button type="button" id="btn-cmp" class="primary">比對</button><button type="button" id="btn-cmp-clear" class="ghost">清空</button></div>
+        <div id="cmp-result"></div>
+      </details>
       <div class="card case-box">
         <h2>案例紀錄</h2>
         <div class="form-grid">
@@ -227,6 +234,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/config.js"></script>
 <script src="js/chart.js"></script>
+<script src="js/compare.js"></script>
 <script src="js/data.js"></script>
 <script src="js/storage.js"></script>
 <script src="js/app.js"></script>
