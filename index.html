@@ -1,101 +1,238 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>暖暖家計簿</title>
-  <link rel="icon" href="images/logo.svg" type="image/svg+xml">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>紫微實戰與學習筆記</title>
+<meta name="theme-color" content="#4f46e5">
+<meta name="robots" content="noindex, nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="紫微筆記">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="images/icon-180.png">
+<link rel="icon" href="images/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <header class="top">
-    <img src="images/logo.svg" alt="雙手捧著硬幣的圖示" class="logo">
-    <div>
-      <h1>暖暖家計簿</h1>
-      <p class="sub">HOME LEDGER</p>
+<header class="top">
+  <h1>紫微實戰與學習筆記</h1>
+  <nav id="tabs" aria-label="主選單">
+    <button data-tab="chart" class="on">排盤</button>
+    <button data-tab="cases">案例</button>
+    <button data-tab="notes">筆記</button>
+    <button data-tab="terms">速查</button>
+    <button data-tab="docs">講義</button>
+    <button id="nav-note" class="nav-quick" aria-label="快速記一筆">＋記</button>
+  </nav>
+  <details class="menu">
+    <summary aria-label="設定">⋯</summary>
+    <div class="menu-body">
+      <button id="btn-export" class="ghost">匯出備份</button>
+      <label class="ghost btn">匯入備份<input id="file-import" type="file" accept=".json" hidden></label>
+      <button id="btn-password" class="ghost">修改密碼</button>
+      <button id="btn-logout" class="ghost">登出</button>
     </div>
-    <button class="btn primary" id="addBtn">＋ 新增項目</button>
-  </header>
+  </details>
+</header>
 
-  <main>
-    <section class="cards" aria-label="總覽">
-      <div class="card"><span>總資產</span><strong id="totalAsset">0</strong></div>
-      <div class="card"><span>總負債</span><strong id="totalDebt">0</strong></div>
-      <div class="card net"><span>淨資產</span><strong id="netWorth">0</strong></div>
-    </section>
+<!-- 登入畫面：沒登入就看不到任何內容 -->
+<div id="login" hidden>
+  <form id="login-form" class="card">
+    <h2>紫微實戰與學習筆記</h2>
+    <p class="muted">僅限本人使用，請登入。</p>
+    <label class="block">Email<input name="email" type="email" autocomplete="username" required></label>
+    <label class="block">密碼<input name="password" type="password" autocomplete="current-password" required></label>
+    <div class="actions"><button type="submit" class="primary">登入</button><span id="login-msg" class="err"></span></div>
+  </form>
+</div>
 
-    <section class="charts">
-      <div class="panel">
-        <h2>資產分布</h2>
-        <div id="donut" class="chart"></div>
-        <ul id="legend" class="legend"></ul>
-      </div>
-      <div class="panel">
-        <h2>淨資產趨勢</h2>
-        <div id="trend" class="chart"></div>
-      </div>
-    </section>
+<button id="fab" aria-label="快速記一筆" hidden>＋</button>
 
-    <section class="panel">
-      <div class="list-head">
-        <h2>我的項目</h2>
-        <div class="tabs" id="tabs">
-          <button data-filter="all" class="on">全部</button>
-          <button data-filter="asset">資產</button>
-          <button data-filter="debt">負債</button>
+<main hidden>
+  <!-- 排盤 -->
+  <section id="tab-chart" class="panel">
+    <form id="chart-form" class="card form-grid">
+      <label>姓名／代號<input name="name" placeholder="例：王小明" autocomplete="off"></label>
+      <label>性別
+        <select name="gender"><option value="M">男</option><option value="F">女</option></select>
+      </label>
+      <label>國曆生日<input name="date" type="date" required></label>
+      <label>出生時辰
+        <select name="hour"></select>
+      </label>
+      <label>閏月規則
+        <select name="leap">
+          <option value="mid">以15日分界（預設）</option>
+          <option value="this">全算本月</option>
+          <option value="next">全算下月</option>
+        </select>
+      </label>
+      <div class="actions"><button type="submit" class="primary">排盤</button></div>
+    </form>
+
+    <div id="chart-wrap" hidden>
+      <div class="card summary" id="chart-summary"></div>
+      <div class="chart-grid" id="chart-grid"></div>
+      <p class="hint">點宮位可修改星曜與備註；點星名可看速查說明。</p>
+      <div class="card" id="star-info" hidden></div>
+      <div class="card case-box">
+        <h2>案例紀錄</h2>
+        <div class="form-grid">
+          <label>驗證結果
+            <select id="case-verdict">
+              <option>未驗證</option><option>很準</option><option>部分準</option><option>不準</option>
+            </select>
+          </label>
+        </div>
+        <label class="block">事件／驗證紀錄
+          <textarea id="case-note" rows="5" placeholder="實際發生了什麼？與盤的推論吻合嗎？"></textarea>
+        </label>
+        <div class="actions">
+          <button id="btn-save-case" class="primary">儲存為案例</button>
+          <span id="case-status" class="muted"></span>
         </div>
       </div>
-      <ul id="list" class="list"></ul>
-      <div id="empty" class="empty" hidden>
-        <p>還沒有任何項目喔～</p>
-        <button class="btn" id="sampleBtn">載入範例資料看看</button>
-      </div>
-    </section>
-  </main>
-
-  <section class="backup">
-    <p>⚠️ 資料只存在這台裝置的瀏覽器裡。清除瀏覽器資料或換裝置就會消失，請定期備份。</p>
-    <div>
-      <button class="btn" id="exportBtn">匯出備份</button>
-      <button class="btn" id="importBtn">匯入備份</button>
-      <input type="file" id="importFile" accept="application/json,.json" hidden>
     </div>
   </section>
 
-  <footer>本工具僅供記帳參考，不構成理財建議。</footer>
+  <!-- 案例 -->
+  <section id="tab-cases" class="panel" hidden>
+    <div class="toolbar"><input id="case-search" type="search" placeholder="搜尋姓名、紀錄…"></div>
+    <div id="case-list" class="list"></div>
+  </section>
 
-  <dialog id="dlg">
-    <form method="dialog" id="form">
-      <h3 id="dlgTitle">新增項目</h3>
-      <label>類型
-        <select name="kind" id="kind">
-          <option value="asset">資產</option>
-          <option value="debt">負債</option>
-        </select>
-      </label>
-      <label>名稱
-        <input name="name" required maxlength="30" placeholder="例如：郵局活存">
-      </label>
-      <label>分類
-        <select name="category" id="category"></select>
-      </label>
-      <label>金額（元）
-        <input name="amount" type="number" min="0" max="1000000000000" step="1" required inputmode="numeric">
-      </label>
-      <label>備註（選填）
-        <input name="note" maxlength="60">
-      </label>
-      <div class="actions">
-        <button type="button" class="btn" id="cancelBtn">取消</button>
-        <button type="submit" class="btn primary">儲存</button>
+  <!-- 筆記 -->
+  <section id="tab-notes" class="panel" hidden>
+    <div class="split">
+      <div>
+        <div class="toolbar">
+          <input id="note-search" type="search" placeholder="搜尋標題、標籤、內容…">
+          <button id="btn-new-note" class="primary">新增</button>
+        </div>
+        <div id="note-list" class="list"></div>
       </div>
-    </form>
-  </dialog>
+      <form id="note-form" class="card" hidden>
+        <label class="block">標題<input name="title" required></label>
+        <label class="block">標籤（用逗號分隔）<input name="tags" placeholder="例：四化, 命宮"></label>
+        <label class="block">內容<textarea name="body" rows="14"></textarea></label>
+        <div class="actions">
+          <button type="submit" class="primary">儲存</button>
+          <button type="button" id="btn-del-note" class="danger">刪除</button>
+        </div>
+      </form>
+    </div>
+  </section>
 
-  <script src="js/storage.js"></script>
-  <script src="js/app.js"></script>
+  <!-- 速查 -->
+  <section id="tab-terms" class="panel" hidden>
+    <div class="toolbar">
+      <input id="term-search" type="search" placeholder="搜尋星曜、術語…">
+      <button id="btn-new-term" class="primary">新增術語</button>
+    </div>
+    <div id="term-cats" class="chips"></div>
+    <div id="term-list" class="cards"></div>
+  </section>
+
+  <!-- 講義 -->
+  <section id="tab-docs" class="panel" hidden>
+    <div class="card">
+      <h2>上傳講義 PDF</h2>
+      <input id="file-pdf" type="file" accept="application/pdf" multiple>
+      <h2 class="mt">匯入 LINE 文字檔</h2>
+      <input id="file-line" type="file" accept=".txt,.md">
+      <label class="check"><input id="line-clean" type="checkbox" checked> 移除每行的時間與暱稱</label>
+      <p class="hint">文字檔會變成一篇可搜尋的「筆記」。PDF 內容無法全文搜尋，請用標題與標籤管理。</p>
+    </div>
+    <div class="toolbar"><input id="doc-search" type="search" placeholder="搜尋講義標題、標籤…"></div>
+    <div id="doc-list" class="list"></div>
+    <div id="doc-viewer" hidden>
+      <div class="viewer-bar"><strong id="doc-title"></strong><span><a id="doc-open" target="_blank" rel="noopener">新分頁開啟</a><button id="btn-close-doc" class="ghost">關閉預覽</button></span></div>
+      <iframe id="doc-frame" title="PDF 預覽"></iframe>
+    </div>
+  </section>
+</main>
+
+<!-- 修改密碼 -->
+<dialog id="dlg-password">
+  <form id="password-form">
+    <h3>修改密碼</h3>
+    <input name="username" type="email" autocomplete="username" hidden>
+    <label class="block">目前的密碼<input name="current" type="password" autocomplete="current-password" required></label>
+    <label class="block">新密碼（至少 8 個字元）<input name="next" type="password" autocomplete="new-password" minlength="8" required></label>
+    <label class="block">再輸入一次新密碼<input name="again" type="password" autocomplete="new-password" minlength="8" required></label>
+    <p id="password-msg" class="err"></p>
+    <div class="actions">
+      <button type="submit" class="primary">更新密碼</button>
+      <button type="button" id="btn-password-cancel" class="ghost">取消</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 快速筆記 -->
+<dialog id="dlg-quick">
+  <form method="dialog" id="quick-form">
+    <h3>快速記一筆</h3>
+    <label class="block">目前章節／單元
+      <select name="chapterSel"></select>
+    </label>
+    <input name="chapter" class="block" placeholder="自行輸入章節或主題" autocomplete="off" hidden>
+    <label class="block">筆記
+      <textarea name="text" rows="6" placeholder="上課重點、老師說的口訣、想驗證的事…"></textarea>
+    </label>
+    <p class="hint">同一章節、同一天的筆記會自動合併成一篇（附上時間）。</p>
+    <div class="actions">
+      <button value="ok" class="primary">儲存</button>
+      <button value="cancel" class="ghost" formnovalidate>取消</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 宮位編輯 -->
+<dialog id="dlg-palace">
+  <form method="dialog" id="palace-form">
+    <h3 id="palace-title"></h3>
+    <label class="block">星曜（用逗號或空白分隔，四化寫成「太陽化忌」）
+      <textarea name="stars" rows="3"></textarea>
+    </label>
+    <label class="block">這個宮位的備註
+      <textarea name="note" rows="3"></textarea>
+    </label>
+    <div class="actions">
+      <button value="ok" class="primary">確定</button>
+      <button value="cancel" class="ghost" formnovalidate>取消</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 術語編輯 -->
+<dialog id="dlg-term">
+  <form method="dialog" id="term-form">
+    <h3>自訂術語</h3>
+    <label class="block">名稱<input name="name" required></label>
+    <label class="block">分類
+      <select name="cat">
+        <option>觀念</option><option>主星</option><option>輔星</option><option>煞星</option>
+        <option>雜曜</option><option>雙星</option><option>四化</option><option>宮位</option><option>自訂</option>
+      </select>
+    </label>
+    <label class="block">一句話重點<input name="brief"></label>
+    <label class="block">詳細說明<textarea name="body" rows="5"></textarea></label>
+    <div class="actions">
+      <button value="ok" class="primary">儲存</button>
+      <button value="cancel" class="ghost" formnovalidate>取消</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" role="status"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/chart.js"></script>
+<script src="js/data.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/app.js"></script>
 </body>
 </html>
+
+
