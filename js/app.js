@@ -290,65 +290,50 @@ $('#term-list').addEventListener('click', async (e) => {
   if (reset && confirm('還原成內建內容？你的修改會被刪除。')) { await Store.remove('terms', byKey(reset).ovId); renderTerms(); }
 });
 
-/* ---------- 講義 ---------- */
-let viewUrl;
-async function renderDocs() {
-  const q = $('#doc-search').value.trim().toLowerCase();
-  const all = (await Store.list('docs')).filter((d) => !q || (d.title + (d.tags || '')).toLowerCase().includes(q));
-  $('#doc-list').innerHTML = all.length ? all.map((d) => `
-    <div class="item" data-id="${d.id}"><div>
-      <div class="t">${esc(d.title)}</div>
-      <div class="s">${(d.tags || '').split(/[,，]/).filter(Boolean).map((t) => `<span class="tag">${esc(t.trim())}</span>`).join('')}${(d.size / 1048576).toFixed(1)} MB｜${fmtDate(d.updated)}</div></div>
-      <span><button class="ghost" data-tag="${d.id}">標籤</button> <button class="danger" data-del="${d.id}">刪除</button></span></div>`).join('')
-    : '<p class="muted">還沒有講義，請從上方上傳 PDF。</p>';
+/* ---------- 匯入 LINE 文字檔 ---------- */
+const DATE_LINE = /^(?:[一二三四五六日週]+[,，]?\s*)?(?:\d{1,2}\/\d{1,2}\/\d{4}|\d{4}[./-]\d{1,2}[./-]\d{1,2}.*)$/;
+const MSG_LINE = /^(?:上午|下午)?\s*(\d{1,2}:\d{2})\t([^\t]*)\t(.*)$/;
+/** 解析 LINE 匯出的聊天記錄。keep 為空陣列時保留所有發言者。 */
+function parseLine(text, keep, clean) {
+  const out = [];
+  let date = '', lastDate = '', on = false;
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.replace(/^"|"$/g, '');
+    const m = raw.match(MSG_LINE);
+    if (m) {
+      const who = m[2].trim();
+      on = !!who && (!keep.length || keep.some((k) => who.includes(k)));
+      if (!on) continue;
+      if (date && date !== lastDate) { out.push('', '## ' + date); lastDate = date; }
+      out.push(clean ? m[3].replace(/^"/, '') : `[${m[1]}] ${who}：${m[3]}`);
+    } else if (DATE_LINE.test(raw.trim()) && raw.trim().length < 30) {
+      date = raw.trim(); on = false;
+    } else if (on && line.trim()) {
+      out.push(line);
+    }
+  }
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
-loaders.docs = renderDocs;
-$('#doc-search').addEventListener('input', renderDocs);
-$('#file-pdf').addEventListener('change', async (e) => {
-  for (const f of e.target.files) {
-    if (f.size > 50 * 1048576) { toast(`「${f.name}」超過 50MB（免費方案單檔上限），請先壓縮或拆檔`); continue; }
-    toast(`上傳中：${f.name}…`);
-    try { await Store.save('docs', { title: f.name.replace(/\.pdf$/i, ''), tags: '', size: f.size, blob: f }); toast('已上傳'); }
-    catch (err) { toast('上傳失敗：' + err.message); }
-  }
-  e.target.value = '';
-  renderDocs();
-});
-$('#doc-list').addEventListener('click', async (e) => {
-  const { del, tag } = e.target.dataset;
-  if (del) {
-    if (confirm('確定刪除這份講義？')) { await Store.remove('docs', del); $('#doc-viewer').hidden = true; renderDocs(); }
-    return;
-  }
-  if (tag) {
-    const d = await Store.get('docs', tag);
-    const t = prompt('標籤（用逗號分隔）', d.tags || '');
-    if (t !== null) { d.tags = t; await Store.save('docs', d); renderDocs(); }
-    return;
-  }
-  const item = e.target.closest('.item');
-  if (!item) return;
-  const d = await Store.get('docs', item.dataset.id);
-  if (viewUrl) URL.revokeObjectURL(viewUrl);
-  toast('載入講義中…');
-  viewUrl = URL.createObjectURL(await Store.docBlob(d.id));
-  $('#doc-title').textContent = d.title;
-  $('#doc-frame').src = viewUrl; $('#doc-open').href = viewUrl;
-  $('#doc-viewer').hidden = false;
-  $('#doc-viewer').scrollIntoView({ behavior: 'smooth' });
-});
-$('#btn-close-doc').addEventListener('click', () => { $('#doc-viewer').hidden = true; $('#doc-frame').src = 'about:blank'; });
-
 $('#file-line').addEventListener('change', async (e) => {
-  const f = e.target.files[0];
-  if (!f) return;
-  let text = await f.text();
-  if ($('#line-clean').checked) {
-    text = text.split(/\r?\n/).map((l) => l.replace(/^\d{1,2}:\d{2}\t[^\t]*\t/, '')).join('\n');
-  }
-  await Store.save('notes', { title: f.name.replace(/\.(txt|md)$/i, ''), tags: 'LINE匯入', body: text });
+  const files = [...e.target.files];
+  if (!files.length) return;
+  const keep = $('#line-who').value.split(/[,，、\s]+/).filter(Boolean);
+  const clean = $('#line-clean').checked;
+  const result = $('#line-result');
+  result.textContent = '';
+  try {
+    const existing = await Store.list('notes');
+    for (const f of files) {
+      const body = parseLine(await f.text(), keep, clean);
+      if (!body) { result.textContent += `「${f.name}」沒有符合條件的發言（請檢查發言者名稱）\n`; continue; }
+      const title = f.name.replace(/\.(txt|md)$/i, '');
+      const old = existing.find((n) => n.title === title && /LINE匯入/.test(n.tags || ''));
+      await Store.save('notes', old ? { ...old, body } : { title, tags: 'LINE匯入', body });
+      result.textContent += `${old ? '已更新' : '已匯入'}「${title}」：${body.split('\n').length} 行\n`;
+    }
+    toast('完成');
+  } catch (err) { result.textContent += '失敗：' + err.message; }
   e.target.value = '';
-  toast('已匯入為筆記');
 });
 
 /* ---------- 備份 ---------- */
@@ -459,7 +444,7 @@ function startApp() {
   loginEl.hidden = true;
   $('main').hidden = false; $('#fab').hidden = false; $('#tabs').hidden = false; $('.menu').hidden = false;
   const h = location.hash.slice(1);
-  showTab(['chart', 'cases', 'notes', 'terms', 'docs'].includes(h) ? h : 'chart');
+  showTab(['chart', 'cases', 'notes', 'terms', 'import'].includes(h) ? h : 'chart');
 }
 $('#login-form').addEventListener('submit', async (e) => {
   e.preventDefault();

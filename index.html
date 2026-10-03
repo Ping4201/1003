@@ -21,7 +21,7 @@
     <button data-tab="cases">案例</button>
     <button data-tab="notes">筆記</button>
     <button data-tab="terms">速查</button>
-    <button data-tab="docs">講義</button>
+    <button data-tab="import">匯入</button>
     <button id="nav-note" class="nav-quick" aria-label="快速記一筆">＋記</button>
   </nav>
   <details class="menu">
@@ -133,21 +133,19 @@
     <div id="term-list" class="cards"></div>
   </section>
 
-  <!-- 講義 -->
-  <section id="tab-docs" class="panel" hidden>
+  <!-- 匯入 -->
+  <section id="tab-import" class="panel" hidden>
     <div class="card">
-      <h2>上傳講義 PDF</h2>
-      <input id="file-pdf" type="file" accept="application/pdf" multiple>
-      <h2 class="mt">匯入 LINE 文字檔</h2>
-      <input id="file-line" type="file" accept=".txt,.md">
-      <label class="check"><input id="line-clean" type="checkbox" checked> 移除每行的時間與暱稱</label>
-      <p class="hint">文字檔會變成一篇可搜尋的「筆記」。PDF 內容無法全文搜尋，請用標題與標籤管理。</p>
-    </div>
-    <div class="toolbar"><input id="doc-search" type="search" placeholder="搜尋講義標題、標籤…"></div>
-    <div id="doc-list" class="list"></div>
-    <div id="doc-viewer" hidden>
-      <div class="viewer-bar"><strong id="doc-title"></strong><span><a id="doc-open" target="_blank" rel="noopener">新分頁開啟</a><button id="btn-close-doc" class="ghost">關閉預覽</button></span></div>
-      <iframe id="doc-frame" title="PDF 預覽"></iframe>
+      <h2>匯入 LINE 文字檔</h2>
+      <label class="block">只保留這些發言者（用逗號分隔，名字含關鍵字就算；留空＝全部保留）
+        <input id="line-who" value="簡少年, 助教">
+      </label>
+      <label class="check"><input id="line-clean" type="checkbox" checked> 移除時間與暱稱，只留內容</label>
+      <label class="block mt">選擇文字檔（可一次選多個）
+        <input id="file-line" type="file" accept=".txt,.md" multiple>
+      </label>
+      <p class="hint">每個檔案會變成一篇「筆記」，標籤為 LINE匯入。重新匯入同名檔案會更新那一篇，不會重複。</p>
+      <pre id="line-result" class="muted"></pre>
     </div>
   </section>
 </main>
